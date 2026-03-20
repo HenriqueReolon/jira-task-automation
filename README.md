@@ -3,10 +3,11 @@
 An automated Python CLI tool that parses documents (PDFs, DOCX, TXT, Excel/CSV) containing meeting notes or project specifications, extracts engineering and production tasks using Google Gemini 3 Pro (via LangChain), and publishes them directly to Jira.
 
 ## Features
-- **Multi-format Document Support:** Reads PDF, DOCX, TXT, CSV, and Excel spreadsheets using LangChain document loaders.
-- **LLM-Powered Extraction:** Uses LangChain with Google Gemini Pro to identify actionable engineering and production tasks.
-- **Automated Jira Integration:** Publishes parsed tasks to a target Jira project.
-- **Dry-Run Mode:** Validate your extracted tasks locally without creating them in Jira.
+- **Multi-file Document Support:** Processes single or multiple PDFs, DOCX, TXT, CSV, and Excel spreadsheets simultaneously using LangChain document loaders.
+- **Context-Aware LLM Extraction:** Injects active Jira project context into Google Gemini Pro (via LangChain) to intelligently categorize tasks (Creates, Updates, and Sub-tasks).
+- **Dynamic Epic Management & Dependency Linking:** Automatically identifies Epic themes, links tasks to Epics, and establishes "Blocks/Blocked By" issue links based on task dependencies.
+- **Automated Bi-Directional Jira Integration:** Creates new issues, appends comments to existing issues (preventing duplicates), and manages sub-tasks directly in the target Jira project.
+- **Dry-Run Mode:** Validate your extracted tasks and Jira actions locally without executing them in Jira.
 
 ## Prerequisites
 - Python 3.10+
@@ -44,11 +45,11 @@ An automated Python CLI tool that parses documents (PDFs, DOCX, TXT, Excel/CSV) 
 
 ## Usage
 
-Run the CLI tool by passing the file path to your document.
+Run the CLI tool by passing one or more file paths to your documents.
 
 ### Extract and Create Tasks in Jira
 ```bash
-python main.py path/to/meeting_notes.pdf
+python main.py path/to/meeting_notes.pdf path/to/schedule.xlsx
 ```
 
 ### Dry Run (Extract without Publishing)

@@ -14,10 +14,10 @@ An automated Python CLI tool that parses documents (PDFs, DOCX, TXT, Excel/CSV) 
 - **Environment Management:** `python-dotenv`
 
 ## Architecture & Module Responsibilities
-- `main.py`: The Click CLI entry point. Orchestrates the flow from loading a document to extracting tasks and publishing them to Jira. Handles all user-facing console output.
+- `main.py`: The Click CLI entry point. Supports parsing multiple documents (`nargs=-1`), orchestrates retrieving Jira Context, passes context to the extractor, and dynamically dispatches tasks as Creates, Updates, or Sub-tasks in Jira. Handles all user-facing console output and Epic linking.
 - `src/document_loader.py`: Responsible for reading various file formats and converting them into plain text using LangChain community document loaders.
-- `src/task_extractor.py`: Handles the interaction with the Gemini LLM. Uses LangChain's `with_structured_output` mechanism alongside Pydantic models (`Task`, `TaskList`) to guarantee the LLM returns properly structured JSON instead of arbitrary text.
-- `src/jira_client.py`: Manages the Jira connection using basic auth (email + token) and handles the creation of standard Jira Issues.
+- `src/task_extractor.py`: Handles the interaction with the Gemini LLM and implements *Pre-Extraction Space Context Injection*. Uses LangChain's `with_structured_output` mechanism alongside Pydantic models (`TaskAction`, `DocumentActionList`) to classify extracted actions contextually.
+- `src/jira_client.py`: Manages the Jira connection using basic auth. Handles fetching the active context via JQL, discovering/creating Epics, creating sub-tasks, appending update comments to prevent duplication, and generating Issue Links (Dependencies).
 
 ## Core Maintenance Rules
 
@@ -34,6 +34,6 @@ An automated Python CLI tool that parses documents (PDFs, DOCX, TXT, Excel/CSV) 
 
 ### 4. Modifying Task Extraction Fields
 If the business requirements change and new fields are needed (e.g., Assignee, Story Points, Labels, Priority):
-1. **Update Pydantic Models:** Add the new field to the `Task` class in `src/task_extractor.py` with a clear `Field(description="...")` so the LLM knows how to populate it.
-2. **Update Jira Mapping:** Update the `issue_dict` payload in `src/jira_client.py`'s `create_task` method to map the new Pydantic field to the correct Jira API field.
-3. **Update Prompts (If necessary):** Adjust the `system` prompt in `task_extractor.py` to instruct the LLM on how to extract the new data.
+1. **Update Pydantic Models:** Add the new field to the `TaskAction` class in `src/task_extractor.py` with a clear `Field(description="...")` so the LLM knows how to populate it.
+2. **Update Jira Mapping:** Update the appropriate method (e.g., `create_task`, `create_subtask`) in `src/jira_client.py` to map the new Pydantic field to the correct Jira API field.
+3. **Update Prompts (If necessary):** Adjust the `system` prompt in `task_extractor.py` to instruct the LLM on how to extract the new data based on the injected Jira Context.
