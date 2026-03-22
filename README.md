@@ -45,23 +45,32 @@ An automated Python CLI tool that parses documents (PDFs, DOCX, TXT, Excel/CSV) 
 
 ## Usage
 
-Run the CLI tool by passing one or more file paths to your documents.
+Run the CLI tool using its subcommands: `extract` and `plan-sprint`.
 
 ### Extract and Create Tasks in Jira
+Pass one or more file paths to your documents.
 ```bash
-python main.py path/to/meeting_notes.pdf path/to/schedule.xlsx
+python main.py extract path/to/meeting_notes.pdf path/to/schedule.xlsx
 ```
 
 ### Dry Run (Extract without Publishing)
 Use the `--dry-run` flag to safely preview the extracted tasks on the console.
 ```bash
-python main.py path/to/meeting_notes.txt --dry-run
+python main.py extract path/to/meeting_notes.txt --dry-run
+```
+
+### Plan a Sprint
+Analyze current backlog tasks and organize them into a Sprint based on your instructions.
+```bash
+python main.py plan-sprint --instructions "Focus on high priority bug fixes and the new login page"
+# Or provide a text file
+python main.py plan-sprint --instructions path/to/instructions.txt --dry-run
 ```
 
 ### Customizing the Model
-You can specify a different Gemini model if required (default is `gemini-3-pro-preview`, which corresponds to Gemini 1.5/3 Pro depending on API mapping).
+You can specify a different Gemini model if required (default is `gemini-3-pro-preview`).
 ```bash
-python main.py path/to/document.docx --model gemini-3.1-pro-preview
+python main.py extract path/to/document.docx --model gemini-3.1-pro-preview
 ```
 
 ## Supported File Formats

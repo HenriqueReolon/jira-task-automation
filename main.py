@@ -9,14 +9,20 @@ sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 from src.document_loader import load_document
 from src.task_extractor import TaskExtractor
 from src.jira_client import JiraManager
+from src.sprint_planner import SprintPlanner
 
-@click.command()
+@click.group()
+def cli():
+    """Automated Jira Task Creation and Sprint Planning CLI."""
+    pass
+
+@cli.command()
 @click.argument('filepaths', type=click.Path(exists=True), nargs=-1, required=True)
 @click.option('--model', default='gemini-3-pro-preview', help='The Gemini model version to use for extraction (e.g. gemini-3-pro-preview for 3 Pro equivalent context parsing)')
 @click.option('--dry-run', is_flag=True, help='Extract and display tasks without creating them in Jira.')
-def main(filepaths, model, dry_run):
+def extract(filepaths, model, dry_run):
     """
-    Automated Jira Task Creation CLI.
+    Extract tasks from documents and push them to Jira.
     
     FILEPATHS: Path to one or more input files (PDF, DOCX, TXT, CSV, XLS/XLSX) containing meeting transcripts, docs, etc.
     """
@@ -152,5 +158,86 @@ def main(filepaths, model, dry_run):
             
     click.secho(f"\n[+] Operation completed. Processed {success_count}/{len(tasks)} actions successfully.", fg="green")
 
+@cli.command(name="plan-sprint")
+@click.option('--instructions', required=True, help='Instruction prompt for the sprint or path to a text file.')
+@click.option('--board-id', type=int, help='Jira Board ID (will auto-detect if not provided).')
+@click.option('--model', default='gemini-3-pro-preview', help='The Gemini model version to use for planning.')
+@click.option('--dry-run', is_flag=True, help='Plan the sprint but do not create it in Jira.')
+def plan_sprint(instructions, board_id, model, dry_run):
+    """
+    Analyze current backlog tasks and organize them into a Sprint.
+    """
+    load_dotenv()
+    
+    # Read instructions if it's a file
+    if os.path.exists(instructions):
+        with open(instructions, "r", encoding="utf-8") as f:
+            sprint_instructions = f.read()
+    else:
+        sprint_instructions = instructions
+        
+    click.echo("\n[*] Connecting to Jira to fetch backlog...")
+    try:
+        jira_client = JiraManager()
+        backlog_tasks = jira_client.get_backlog_tasks(max_results=100)
+        
+        if not backlog_tasks or backlog_tasks == "No backlog tasks found.":
+            click.secho("[-] No available tasks in the backlog to plan.", fg="yellow")
+            return
+            
+        click.echo(f"[+] Retrieved backlog tasks:\n{backlog_tasks}")
+    except Exception as e:
+        click.secho(f"[-] Failed to fetch backlog: {e}", fg="red")
+        return
+
+    click.echo(f"\n[*] Planning Sprint using Gemini model: {model}...")
+    try:
+        planner = SprintPlanner(model_name=model)
+        sprint_plan = planner.plan_sprint(backlog_tasks=backlog_tasks, instructions=sprint_instructions)
+        
+        if not sprint_plan or not sprint_plan.selected_issues:
+            click.secho("[-] No issues were selected for the sprint based on the instructions.", fg="yellow")
+            return
+            
+        click.secho(f"\n[+] Sprint Name: {sprint_plan.sprint_name}", fg="green")
+        click.secho(f"[+] Sprint Goal: {sprint_plan.sprint_goal}", fg="blue")
+        click.echo("\n[*] Selected Issues:")
+        
+        issue_keys_to_add = []
+        for issue in sprint_plan.selected_issues:
+            click.echo(f"    - {issue.issue_key}: {issue.rationale}")
+            issue_keys_to_add.append(issue.issue_key)
+            
+    except Exception as e:
+        click.secho(f"[-] Failed to plan sprint: {e}", fg="red")
+        return
+
+    if dry_run:
+        click.secho("\n[!] Dry run mode enabled. Skipping Jira sprint creation.", fg="yellow")
+        return
+
+    click.echo("\n[*] Applying Sprint in Jira...")
+    try:
+        target_board_id = board_id
+        if not target_board_id:
+            click.echo("    [*] Auto-detecting Board ID...")
+            target_board_id = jira_client.get_board_id()
+            click.echo(f"    [+] Detected Board ID: {target_board_id}")
+            
+        click.echo(f"    [*] Creating Sprint '{sprint_plan.sprint_name}'...")
+        sprint_id = jira_client.create_sprint(
+            name=sprint_plan.sprint_name,
+            goal=sprint_plan.sprint_goal,
+            board_id=target_board_id
+        )
+        click.secho(f"    [+] Created Sprint (ID: {sprint_id})", fg="green")
+        
+        click.echo(f"    [*] Adding {len(issue_keys_to_add)} issues to Sprint...")
+        jira_client.add_issues_to_sprint(sprint_id=sprint_id, issue_keys=issue_keys_to_add)
+        click.secho(f"    [+] Successfully added issues to Sprint {sprint_id}.", fg="green")
+        
+    except Exception as e:
+        click.secho(f"    [-] Failed to apply sprint to Jira: {e}", fg="red")
+
 if __name__ == "__main__":
-    main()
+    cli()

@@ -52,6 +52,8 @@ class TaskExtractor:
                        f"=== CURRENT JIRA CONTEXT ===\n"
                        f"{jira_context}\n"
                        f"============================\n\n"
+                       f"CRITICAL: The 'issue_type' field MUST be one of the valid issue types listed in the Jira context "
+                       f"(if provided), otherwise use 'Task' or 'Story'. Do not invent new issue types.\n"
                        f"Ensure tasks are well-defined, containing a clear title and a detailed actionable description "
                        f"with context and criteria if present. Output ONLY the extracted tasks based on the provided text, ALWAYS in Brazilian Portuguese."),
             ("user", "Document Context:\n{document_text}\n\nExtract the engineering/production tasks from the context.")
